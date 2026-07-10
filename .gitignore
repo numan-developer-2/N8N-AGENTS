@@ -3,7 +3,6 @@ Thumbs.db
 desktop.ini
 
 # Local editor and OS metadata
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -29,3 +28,7 @@ workflow-visualizations/
 *.log
 *.tmp
 *.temp
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
