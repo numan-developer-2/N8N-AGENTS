@@ -1,0 +1,31 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local editor and OS metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Generated and dependency folders
+node_modules/
+dist/
+build/
+coverage/
+workflow-visualizations/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp

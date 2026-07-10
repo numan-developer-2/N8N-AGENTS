@@ -1,0 +1,147 @@
+{
+  "name": "Digital Flix Pro WhatsApp Agent (Gemini + CRM + Memory)",
+  "nodes": [
+    {
+      "parameters": { "path": "whatsapp-incoming" },
+      "id": "1",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "if (!$json[\"body\"] || !$json[\"from\"]) {\n  throw new Error('Invalid message format: missing body or sender');\n}\n\nconst phone = $json[\"from\"].replace(/[^0-9+]/g, '');\nif (!phone.match(/^\\+?[1-9]\\d{1,14}$/)) {\n  throw new Error('Invalid phone number format');\n}\n\nreturn [{ json: { message: $json[\"body\"].trim(), phone: phone } }];"
+      },
+      "id": "2",
+      "name": "Extract Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "none",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/ChatMemory!A1:D1000?key=YOUR_GOOGLE_API_KEY",
+        "method": "GET",
+        "responseFormat": "json"
+      },
+      "id": "3",
+      "name": "Get Conversation Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8000/query",
+        "method": "POST",
+        "jsonParameters": true,
+        "responseFormat": "json",
+        "body": { "query": "={{$json[\"message\"]}}" }
+      },
+      "id": "4",
+      "name": "Retrieve Company Docs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "none",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=YOUR_GEMINI_API_KEY",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "body": {
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text": "You are \"Digital Flix AI Assistant,\" a professional representative of Digital Flix Company.\n\n**Your Objectives:**\n1. Understand user intent from chat and company context.\n2. Use memory (previous messages) and company documents for accurate responses.\n3. Maintain friendly, concise, human-like tone.\n4. If question unrelated to company data, handle naturally but professionally.\n5. If answer unknown, say:\n\"That's a great question! I'll have our Digital Flix team reach out shortly.\"\n6. Always end politely with \"– Team Digital Flix\".\n7. Never hallucinate facts; stick to provided data.\n\n**Conversation Memory:**\n{{ $json[\"memory\"] }}\n\n**Relevant Company Docs:**\n{{ $json[\"retrieved_docs\"] }}\n\n**Client Message:**\n{{ $json[\"message\"] }}"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "Gemini Generate Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "body": {
+          "messaging_product": "whatsapp",
+          "to": "={{$json[\"phone\"]}}",
+          "type": "text",
+          "text": {
+            "body": "={{$json[\"candidates\"][0][\"content\"][\"parts\"][0][\"text\"]}}"
+          }
+        },
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_WHATSAPP_TOKEN"
+        }
+      },
+      "id": "6",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "method": "POST",
+        "authentication": "headerAuth",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "body": {
+          "properties": {
+            "email": "={{$json[\"phone\"] + '@digitalflix.com'}}",
+            "firstname": "Digital Flix Lead",
+            "phone": "={{$json[\"phone\"]}}",
+            "lastmessage": "={{$json[\"message\"]}}"
+          }
+        },
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bearer YOUR_HUBSPOT_TOKEN"
+        }
+      },
+      "id": "7",
+      "name": "CRM Sync HubSpot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1250, 550]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [[{"node": "Extract Message", "type": "main", "index": 0}]]
+    },
+    "Extract Message": {
+      "main": [[{"node": "Get Conversation Memory", "type": "main", "index": 0}]]
+    },
+    "Get Conversation Memory": {
+      "main": [[{"node": "Retrieve Company Docs", "type": "main", "index": 0}]]
+    },
+    "Retrieve Company Docs": {
+      "main": [[{"node": "Gemini Generate Reply", "type": "main", "index": 0}]]
+    },
+    "Gemini Generate Reply": {
+      "main": [
+        {"node": "Send WhatsApp Reply", "type": "main", "index": 0},
+        {"node": "CRM Sync HubSpot", "type": "main", "index": 0}
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+name: Validate workflow files
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  validate-files:
+    name: Validate repository files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          set -euo pipefail
+          json_files="$(find . -type f -name '*.json' -not -path './.git/*')"
+          if [ -z "$json_files" ]; then
+            echo "No JSON files found."
+            exit 0
+          fi
+          while IFS= read -r file; do
+            echo "Checking $file"
+            python -m json.tool "$file" > /dev/null
+          done <<< "$json_files"
+
+      - name: Count workflow templates
+        run: |
+          count="$(find . -type f -name '*.txt' -not -path './.git/*' | wc -l)"
+          echo "Found $count text workflow templates."
